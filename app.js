@@ -287,7 +287,7 @@ async function api(path, method = 'GET', value) {
 }
 async function configStatus() {
   try { const info = await api('/api/config'); aiConfig = info; $('api-status').textContent = info.configured ? `已配置 ${info.model} · 可测试连接` : '本地规则可直接游玩，AI 连接可选。'; return info; }
-  catch { aiConfig = null; $('api-status').textContent = '当前使用本地规则；连接 AI 需要启动游戏服务。'; return null; }
+  catch { aiConfig = null; $('api-status').textContent = hostedRuntime ? '当前使用本地规则；线上 AI 代理暂不可用。' : '当前使用本地规则；连接 AI 需要启动游戏服务。'; return null; }
 }
 function updateBoard(state = world) {
   world = state; const board = $('board'); board.replaceChildren();
@@ -322,7 +322,7 @@ function applyStageChrome() {
   const objects = Game.levels[level].items.map((item, id) => `#${id} ${names[item[2]]}(${item[0]},${item[1]})`).join('、');
   $('editor-help').textContent = stage === 'natural'
     ? save.mode === 'learning' ? '本地可运行。说清对象、目标和路线；批量任务加入重复，分拣任务加入颜色条件。' : `本地识别，无需 API。用自己的话安排${theme.actor}行动。`
-    : stage === 'pseudo' ? '逐行修改方括号里的内容；系统会指出第一处不符合规则的行。'
+    : stage === 'pseudo' ? '结构化模板练习：逐行修改方括号里的内容；系统会指出第一处不符合本关结构的行。'
     : `workshop.h · 地图 11 × 8，左上角 (0,0)。${theme.cargo}编号 0～${Game.levels[level].items.length - 1}。\nint crystal_count(void); int crystal_color(int id);\nvoid deliver(int id, int furnace_color); 常量 RED、BLUE。deliver 自动寻找合法路线。\n本关对象：${objects}。${Game.levels[level].ordered ? '本关必须按编号从小到大依次投递。' : ''}`;
   $('voice').hidden = stage !== 'natural'; $('open-chat').hidden = stage !== 'natural';
   $('hint-box').hidden = save.mode !== 'learning';

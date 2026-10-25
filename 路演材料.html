@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="《规则之外》互动编程学习游戏路演材料">
+  <title>规则之外 · 产品路演</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08131c;
+      --panel: #12232d;
+      --panel-2: #182f37;
+      --ink: #eef4ec;
+      --muted: #93aab2;
+      --mint: #bde9cc;
+      --mint-strong: #7fd3ac;
+      --coral: #ffad8e;
+      --blue: #8fc7ed;
+      --line: rgba(226, 245, 239, .13);
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-snap-type: y mandatory; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 8%, rgba(87, 175, 152, .13), transparent 31rem),
+        linear-gradient(145deg, #08131c 0%, #0b1821 52%, #071019 100%);
+      color: var(--ink);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      font-size: clamp(15px, 1.12vw, 19px);
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    button, a { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    .deck { counter-reset: slide; }
+    .slide {
+      counter-increment: slide;
+      min-height: 100svh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      display: grid;
+      place-items: center;
+      padding: clamp(72px, 8vh, 100px) clamp(24px, 6vw, 100px);
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+    }
+    .slide::before {
+      content: "0" counter(slide);
+      position: absolute;
+      top: 28px;
+      right: clamp(24px, 5vw, 72px);
+      font: 600 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+      color: #64808b;
+      letter-spacing: .18em;
+    }
+    .slide-inner { width: min(1240px, 100%); position: relative; z-index: 1; }
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--mint-strong);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { line-height: 1.14; letter-spacing: -.04em; }
+    h1 { font-size: clamp(48px, 8vw, 112px); margin-bottom: 20px; }
+    h2 { font-size: clamp(36px, 5.2vw, 72px); margin-bottom: 22px; max-width: 16ch; }
+    h3 { font-size: clamp(18px, 2vw, 27px); margin-bottom: 10px; }
+    p { color: var(--muted); }
+    .lead { font-size: clamp(18px, 1.8vw, 27px); max-width: 38em; line-height: 1.7; }
+    .accent { color: var(--mint); }
+    .coral { color: var(--coral); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+    .topline {
+      position: fixed;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 4px;
+      background: rgba(255,255,255,.06);
+    }
+    #progress { display: block; width: 11.11%; height: 100%; background: var(--mint); transition: width .25s ease; }
+    .brand {
+      position: fixed;
+      z-index: 20;
+      left: clamp(18px, 3vw, 46px);
+      top: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #dfeae4;
+      font-size: 13px;
+      letter-spacing: .12em;
+    }
+    .brand i { width: 13px; height: 13px; transform: rotate(45deg); background: var(--mint); display: inline-block; }
+    .nav {
+      position: fixed;
+      z-index: 20;
+      right: clamp(18px, 3vw, 46px);
+      bottom: 24px;
+      display: flex;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(8, 19, 28, .82);
+      backdrop-filter: blur(14px);
+    }
+    .nav button {
+      width: 40px;
+      height: 40px;
+      border: 0;
+      border-radius: 50%;
+      background: #19303a;
+      cursor: pointer;
+    }
+    .nav button:hover { background: var(--mint); color: #103128; }
+    .nav button:focus-visible, .dot:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+    .dots {
+      position: fixed;
+      z-index: 19;
+      left: clamp(18px, 3vw, 46px);
+      bottom: 36px;
+      display: flex;
+      gap: 9px;
+    }
+    .dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: #42606b; cursor: pointer; }
+    .dot.active { width: 26px; border-radius: 10px; background: var(--mint); }
+
+    .cover-grid { display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: clamp(40px, 8vw, 110px); }
+    .cover h1 span { display: block; }
+    .cover .subline { margin: 0 0 34px; max-width: 31em; font-size: clamp(18px, 1.7vw, 25px); }
+    .cover-tags { display: flex; flex-wrap: wrap; gap: 10px; }
+    .tag { padding: 8px 13px; border: 1px solid var(--line); border-radius: 999px; color: #a8bec5; font-size: 12px; }
+
+    .cover-art { min-height: 480px; position: relative; }
+    .orbit { position: absolute; inset: 4% 3%; border: 1px solid rgba(189,233,204,.2); border-radius: 50%; transform: rotate(-13deg); }
+    .orbit::before, .orbit::after { content: ""; position: absolute; border: 1px solid rgba(189,233,204,.09); border-radius: 50%; }
+    .orbit::before { inset: 11%; }
+    .orbit::after { inset: 24%; }
+    .route { position: absolute; left: 2%; right: 0; top: 58%; border-top: 2px dashed rgba(189,233,204,.28); transform: rotate(-14deg); }
+    .bot {
+      position: absolute; left: 5%; top: 44%; width: 136px; height: 116px; border-radius: 29px;
+      background: linear-gradient(145deg, #d9efca, #78bfa6); border: 2px solid #e9f8df; box-shadow: var(--shadow), 0 0 70px rgba(125,218,180,.18); transform: rotate(-8deg);
+    }
+    .bot::before { content: "••"; position: absolute; left: 21%; right: 21%; top: 31%; height: 36%; border-radius: 10px; background: #163d3b; color: #c7f0d2; text-align: center; font: 34px/35px monospace; letter-spacing: 14px; padding-left: 12px; }
+    .crystal {
+      position: absolute; left: 52%; top: 23%; width: 68px; height: 86px; clip-path: polygon(50% 0,100% 31%,80% 80%,50% 100%,15% 80%,0 31%);
+      background: linear-gradient(125deg,#ffe0c4,#ee9d80 50%,#a55e58); filter: drop-shadow(0 18px 16px rgba(0,0,0,.35)); transform: rotate(11deg);
+    }
+    .furnace { position: absolute; right: 0; top: 49%; width: 125px; height: 160px; border-radius: 24px; background: linear-gradient(145deg,#314d54,#142a34); border: 2px solid #a2746c; box-shadow: var(--shadow); }
+    .furnace::before { content: ""; position: absolute; inset: 25% 30%; border-radius: 8px; background: var(--coral); box-shadow: 0 0 35px rgba(255,173,142,.42); }
+
+    .statement { display: grid; grid-template-columns: .8fr 1.2fr; gap: clamp(36px, 7vw, 110px); align-items: start; }
+    .big-quote { font-size: clamp(31px, 4.5vw, 64px); line-height: 1.25; color: var(--ink); max-width: 15ch; letter-spacing: -.045em; }
+    .problem-list { display: grid; gap: 14px; }
+    .problem { border: 1px solid var(--line); background: rgba(18,35,45,.7); border-radius: 16px; padding: 22px 24px; display: grid; grid-template-columns: 42px 1fr; gap: 15px; }
+    .problem b { color: var(--coral); font: 650 21px/1 monospace; }
+    .problem strong { display: block; margin-bottom: 5px; }
+    .problem p { margin: 0; font-size: .9em; }
+
+    .loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 48px; }
+    .loop-card { min-height: 220px; padding: 28px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgba(28,54,62,.95), rgba(14,29,39,.95)); position: relative; }
+    .loop-card::after { content: "→"; position: absolute; right: -17px; top: 43%; color: var(--mint); font-size: 24px; z-index: 2; }
+    .loop-card:last-child::after { content: "↺"; right: 19px; top: 18px; }
+    .loop-card .n { color: var(--mint); font: 600 12px/1 monospace; letter-spacing: .15em; }
+    .loop-card h3 { margin-top: 34px; }
+    .loop-card p { margin-bottom: 0; font-size: .88em; }
+
+    .demo-grid { display: grid; grid-template-columns: 1.08fr .92fr; gap: 22px; margin-top: 36px; }
+    .map, .editor { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+    .mock-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); color: #a7bcc3; font-size: 12px; }
+    .mock-head i { width: 7px; height: 7px; background: var(--mint-strong); border-radius: 50%; box-shadow: 0 0 10px var(--mint-strong); display: inline-block; margin-right: 6px; }
+    .board { aspect-ratio: 11/7; padding: 18px; display: grid; grid-template-columns: repeat(11, 1fr); grid-template-rows: repeat(7, 1fr); gap: 5px; background: radial-gradient(circle at 50% 42%, #24444a, #10222c 72%); }
+    .cell { border: 1px solid rgba(105,145,151,.18); background: rgba(65,104,112,.13); border-radius: 5px; position: relative; }
+    .wall { background: repeating-linear-gradient(135deg,#4b687052,#4b687052 4px,#263e4752 4px,#263e4752 9px); }
+    .mini-bot { background: linear-gradient(145deg,#d9efca,#78bfa6); border-color: #c8efda; border-radius: 22%; box-shadow: 0 0 15px rgba(125,218,180,.25); }
+    .mini-bot::after { content: "••"; position: absolute; inset: 31% 18%; background: #163d3b; border-radius: 3px; color: #c7f0d2; font: 12px/1 monospace; text-align: center; letter-spacing: 3px; }
+    .mini-crystal::after { content: ""; position: absolute; inset: 18% 27%; clip-path: polygon(50% 0,100% 35%,76% 85%,50% 100%,22% 85%,0 35%); background: linear-gradient(125deg,#ffe0c4,#ee9d80 50%,#a55e58); }
+    .mini-furnace { background: linear-gradient(145deg,#3b5055,#213540); border-color: #a7756a; }
+    .mini-furnace::after { content: ""; position: absolute; inset: 23% 34%; border-radius: 3px; background: var(--coral); box-shadow: 0 0 11px rgba(255,173,142,.45); }
+    .editor-body { padding: clamp(22px, 3vw, 36px); }
+    .editor-body h3 { font-size: 24px; }
+    .input { padding: 18px; border: 1px solid rgba(144,182,187,.35); background: #0c1a24; color: #dcebe3; border-radius: 12px; font: 14px/1.8 ui-monospace, monospace; margin: 22px 0 16px; }
+    .action-row { display: flex; gap: 10px; }
+    .mock-btn { padding: 11px 18px; border-radius: 9px; border: 1px solid var(--line); background: #1b313b; font-size: 13px; }
+    .mock-btn.primary { background: var(--mint); color: #13342c; border-color: transparent; }
+    .feedback { margin-top: 24px; border-left: 2px solid var(--coral); padding: 3px 0 3px 15px; color: #bcd0d1; font-size: 13px; }
+
+    .journey { display: grid; gap: 12px; margin-top: 38px; }
+    .level { display: grid; grid-template-columns: 74px 1.05fr .8fr 1fr; gap: 22px; align-items: center; padding: 18px 22px; border: 1px solid var(--line); border-radius: 14px; background: rgba(18,35,45,.66); }
+    .level .num { font: 600 26px/1 monospace; color: #60808b; }
+    .level strong { font-size: 1.05em; }
+    .level span, .level small { color: var(--muted); }
+    .level .concept { color: var(--mint); }
+    .level:nth-child(4), .level:nth-child(5) { background: rgba(21,42,54,.86); }
+
+    .three-way { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 38px; }
+    .way { padding: 28px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(23,47,55,.92), rgba(14,29,39,.94)); }
+    .way .icon { font: 600 18px/1 monospace; color: var(--mint); }
+    .way h3 { margin-top: 45px; }
+    .way p { font-size: .86em; margin-bottom: 20px; }
+    .way code { display: block; padding: 12px; border-radius: 9px; background: #0a1821; color: #bcd8cd; font: 12px/1.7 ui-monospace, monospace; white-space: pre-wrap; }
+
+    .architecture { display: grid; grid-template-columns: 1fr 72px 1fr 72px 1fr; align-items: stretch; gap: 10px; margin-top: 48px; }
+    .arch-node { min-height: 230px; padding: 26px; border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); }
+    .arch-node b { display: block; color: var(--mint); font: 600 11px/1 monospace; letter-spacing: .13em; }
+    .arch-node h3 { margin-top: 44px; }
+    .arch-node p { margin-bottom: 0; font-size: .86em; }
+    .arch-arrow { align-self: center; text-align: center; color: var(--mint); font-size: 28px; }
+    .guardrail { margin-top: 18px; padding: 15px 18px; border: 1px dashed rgba(255,173,142,.38); border-radius: 12px; color: #d0b0a4; font-size: .82em; text-align: center; }
+
+    .value-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 38px; }
+    .value { padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: rgba(18,35,45,.72); }
+    .value em { font-style: normal; color: var(--mint); font: 600 12px/1 monospace; letter-spacing: .12em; }
+    .value h3 { margin-top: 22px; }
+    .value p { margin-bottom: 0; font-size: .87em; }
+
+    .tech-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: clamp(30px, 7vw, 100px); align-items: start; }
+    .stack { display: grid; gap: 12px; }
+    .stack-row { display: grid; grid-template-columns: 110px 1fr; gap: 18px; padding: 17px 0; border-bottom: 1px solid var(--line); }
+    .stack-row strong { color: var(--mint); font: 600 12px/1.5 monospace; letter-spacing: .08em; }
+    .stack-row span { color: #b5c7cb; font-size: .88em; }
+    .run-card { margin-top: 28px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: #0b1922; }
+    .run-card code { color: var(--mint); font: 13px/1.7 ui-monospace, monospace; }
+    .status-card { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .status-card span { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: #aac1c5; font-size: 12px; }
+
+    .final { text-align: center; }
+    .final h2 { max-width: 14ch; margin-left: auto; margin-right: auto; }
+    .final .lead { margin-left: auto; margin-right: auto; }
+    .next { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 920px; margin: 46px auto 0; text-align: left; }
+    .next div { padding: 22px; border-top: 1px solid var(--mint); background: rgba(18,35,45,.5); }
+    .next strong { display: block; margin-bottom: 7px; }
+    .next p { margin: 0; font-size: .82em; }
+    .thanks { margin-top: 62px; color: #597682; font: 600 11px/1 monospace; letter-spacing: .2em; }
+
+    .hint { position: absolute; left: clamp(24px, 6vw, 100px); bottom: 30px; color: #506c77; font-size: 10px; letter-spacing: .1em; }
+    @media (max-width: 900px) {
+      html { scroll-snap-type: none; }
+      .slide { min-height: auto; padding-top: 100px; padding-bottom: 100px; }
+      .cover-grid, .statement, .demo-grid, .tech-grid { grid-template-columns: 1fr; }
+      .cover-art { min-height: 370px; width: min(500px, 100%); margin: auto; }
+      .loop, .three-way { grid-template-columns: 1fr 1fr; }
+      .loop-card::after { display: none; }
+      .architecture { grid-template-columns: 1fr; }
+      .arch-arrow { transform: rotate(90deg); }
+      .level { grid-template-columns: 48px 1fr; }
+      .level small, .level .concept { grid-column: 2; }
+      .next { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 580px) {
+      .brand { top: 18px; }
+      .slide::before { top: 23px; }
+      .dots { display: none; }
+      .nav { right: 14px; bottom: 14px; }
+      .loop, .three-way, .value-grid { grid-template-columns: 1fr; }
+      .cover-art { min-height: 300px; transform: scale(.86); transform-origin: center top; }
+      .board { gap: 2px; padding: 10px; }
+      .stack-row { grid-template-columns: 1fr; gap: 5px; }
+      .hint { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+    @media print {
+      :root { color-scheme: light; --bg:#fff; --ink:#14242c; --muted:#586b73; --panel:#f2f7f5; --line:#cfdad6; }
+      html, body { background: #fff; }
+      .slide { width: 100%; min-height: 100vh; break-after: page; page-break-after: always; border: 0; }
+      .topline, .brand, .nav, .dots, .hint { display: none !important; }
+      .map, .editor, .loop-card, .way, .arch-node, .value, .problem, .level { box-shadow: none; }
+      p, .level span, .level small { color: #53666e; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topline"><span id="progress"></span></div>
+  <div class="brand"><i></i><span>规则之外 · 路演</span></div>
+  <nav class="dots" id="dots" aria-label="页面导航"></nav>
+  <div class="nav" aria-label="翻页">
+    <button id="prev" aria-label="上一页">↑</button>
+    <button id="next" aria-label="下一页">↓</button>
+  </div>
+
+  <main class="deck" id="deck">
+    <section class="slide cover" data-title="封面">
+      <div class="slide-inner cover-grid">
+        <div>
+          <p class="eyebrow">Beyond the rules · 产品路演</p>
+          <h1><span>规则</span><span class="accent">之外</span></h1>
+          <p class="subline">把“学编程”变成一场可以看见、试错与修正的规则解谜。</p>
+          <div class="cover-tags">
+            <span class="tag">互动编程学习</span><span class="tag">三种表达方式</span><span class="tag">本地可玩</span><span class="tag">AI 可选增强</span>
+          </div>
+        </div>
+        <div class="cover-art" aria-hidden="true"><div class="orbit"></div><div class="route"></div><div class="bot"></div><div class="crystal"></div><div class="furnace"></div></div>
+      </div>
+      <span class="hint">↓ 滚动或使用方向键翻页</span>
+    </section>
+
+    <section class="slide" data-title="为什么做">
+      <div class="slide-inner statement">
+        <div>
+          <p class="eyebrow">01 · 问题与机会</p>
+          <p class="big-quote">学习者缺少的，常常不是更多语法，而是<span class="accent">把想法变成规则</span>的过程。</p>
+        </div>
+        <div class="problem-list">
+          <article class="problem"><b>01</b><div><strong>入门门槛高</strong><p>一开始就面对严格语法，容易把注意力耗在格式与报错上。</p></div></article>
+          <article class="problem"><b>02</b><div><strong>反馈不够直观</strong><p>程序执行发生在抽象环境里，学习者很难看见“规则如何影响世界”。</p></div></article>
+          <article class="problem"><b>03</b><div><strong>自然语言与代码断层</strong><p>会描述解决方案，不等于能把它逐步表达成可执行逻辑。</p></div></article>
+          <article class="problem"><b>04</b><div><strong>试错缺少沉淀</strong><p>失败、修改与成功没有被保存为可回看的成长记录。</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="核心体验">
+      <div class="slide-inner">
+        <p class="eyebrow">02 · 核心体验</p>
+        <h2>玩家真正玩的，是一轮<span class="accent">表达与修正</span>。</h2>
+        <p class="lead">目标不只是“得到正确答案”，而是看见自己的规则被执行，并根据真实结果完成下一次表达。</p>
+        <div class="loop">
+          <article class="loop-card"><span class="n">STEP 01</span><h3>观察任务</h3><p>从地图、对象与目标中，找出真正需要解决的问题。</p></article>
+          <article class="loop-card"><span class="n">STEP 02</span><h3>写下规则</h3><p>使用自然语言、伪代码或 C 代码表达自己的策略。</p></article>
+          <article class="loop-card"><span class="n">STEP 03</span><h3>看见执行</h3><p>角色逐步行动，地图和日志共同呈现执行过程。</p></article>
+          <article class="loop-card"><span class="n">STEP 04</span><h3>修改再试</h3><p>根据撞墙、遗漏或条件错误，重新组织自己的规则。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="产品形态">
+      <div class="slide-inner">
+        <p class="eyebrow">03 · 产品形态</p>
+        <h2>同一张地图，连接<span class="accent">想法</span>与<span class="coral">结果</span>。</h2>
+        <div class="demo-grid">
+          <div class="map">
+            <div class="mock-head"><span><i></i>能源工坊</span><strong>目标 0 / 1</strong></div>
+            <div class="board" aria-hidden="true" id="mock-board"></div>
+          </div>
+          <div class="editor">
+            <div class="mock-head"><span>自然语言 · 学习模式</span><strong>顺序</strong></div>
+            <div class="editor-body">
+              <h3>第一颗能源核心</h3>
+              <p>把红色晶体送进红色发电炉。</p>
+              <div class="input">找到红色晶体，绕开墙壁，<br>把它送到红色发电炉。</div>
+              <div class="action-row"><span class="mock-btn primary">▶ 运行</span><span class="mock-btn">↺ 重试</span></div>
+              <div class="feedback">反馈：规则已识别。墨点将沿安全路线完成投递。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="课程设计">
+      <div class="slide-inner">
+        <p class="eyebrow">04 · 内容与成长路径</p>
+        <h2>五关原型，逐步建立<span class="accent">计算思维</span>。</h2>
+        <div class="journey">
+          <div class="level"><span class="num">01</span><strong>第一颗能源核心</strong><span class="concept">顺序执行</span><small>明确对象、动作与目标</small></div>
+          <div class="level"><span class="num">02</span><strong>自动搬运系统</strong><span class="concept">循环</span><small>重复执行并说明结束条件</small></div>
+          <div class="level"><span class="num">03</span><strong>颜色分拣工坊</strong><span class="concept">条件判断</span><small>根据颜色选择动作分支</small></div>
+          <div class="level"><span class="num">04</span><strong>古籍档案馆</strong><span class="concept">数组与遍历</span><small>按下标顺序访问每个元素</small></div>
+          <div class="level"><span class="num">05</span><strong>秘方蒸馏所</strong><span class="concept">函数</span><small>定义一次，按需多次调用</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="三种难度">
+      <div class="slide-inner">
+        <p class="eyebrow">05 · 三种表达方式</p>
+        <h2>不是三套游戏，而是同一个问题的<span class="accent">三层表达</span>。</h2>
+        <div class="three-way">
+          <article class="way"><span class="icon">{ 中文 }</span><h3>自然语言</h3><p>先用熟悉的语言说清思路；本地解析无需 API，AI 可选增强讨论与改写。</p><code>把所有晶体送到同色发电炉，绕开障碍</code></article>
+          <article class="way"><span class="icon">{ 伪代码 }</span><h3>结构化表达</h3><p>用顺序、循环和条件拆分策略，错误会定位到具体动作或条件。</p><code>重复 直到 没有晶体\n  如果 颜色 = 红色\n    投递到 红色炉</code></article>
+          <article class="way"><span class="icon">{ C }</span><h3>真实代码</h3><p>浏览器端编译为 WebAssembly，在独立 Worker 中受限运行并回放动作。</p><code>for (int i=0; i&lt;n; i++) {\n  deliver(i, RED);\n}</code></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="系统架构">
+      <div class="slide-inner">
+        <p class="eyebrow">06 · AI 与系统边界</p>
+        <h2>AI 帮助表达，<span class="accent">本地引擎负责事实</span>。</h2>
+        <p class="lead">模型可以讨论策略、解释错误并提出结构化规则，但不能直接移动角色，也不能决定玩家是否通关。</p>
+        <div class="architecture">
+          <article class="arch-node"><b>INPUT</b><h3>玩家表达</h3><p>自然语言、伪代码或 C 代码；对话修改后先展示规则预览。</p></article>
+          <div class="arch-arrow">→</div>
+          <article class="arch-node"><b>RULE PROGRAM</b><h3>受限规则</h3><p>解析、校验并限制动作数、执行时间、源码大小与可用函数。</p></article>
+          <div class="arch-arrow">→</div>
+          <article class="arch-node"><b>LOCAL ENGINE</b><h3>确定性执行</h3><p>统一验证移动、投递和胜负，生成可回放的真实执行记录。</p></article>
+        </div>
+        <div class="guardrail">API 不可用时，自然语言本地识别、伪代码、提示与核心关卡仍可运行。</div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="产品亮点">
+      <div class="slide-inner">
+        <p class="eyebrow">07 · 功能亮点</p>
+        <h2>把一次通关，变成可以<span class="accent">带走的成长</span>。</h2>
+        <div class="value-grid">
+          <article class="value"><em>01 · 双模式</em><h3>娱乐与学习共用进度</h3><p>娱乐模式聚焦任务与结果；学习模式增加表达要点和逐级提示，切换不重置关卡。</p></article>
+          <article class="value"><em>02 · 真实记录</em><h3>每次尝试都有上下文</h3><p>保存提交内容、规则快照、执行步数、结果与失败原因，奖励只在首次完成时发放。</p></article>
+          <article class="value"><em>03 · 成长档案</em><h3>XP、徽章与成就</h3><p>按“关卡 × 表达方式”记录成长，鼓励玩家用不同方式重新理解同一个问题。</p></article>
+          <article class="value"><em>04 · 主动导出</em><h3>从运行事实生成作品</h3><p>按关卡生成文章或组合成长总报告；玩家可编辑并下载 Markdown，手写内容不会被覆盖。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="技术与运行">
+      <div class="slide-inner tech-grid">
+        <div>
+          <p class="eyebrow">08 · 技术栈与运行</p>
+          <h2>轻量、透明、<span class="accent">本机优先</span>。</h2>
+          <p class="lead">原型无需前端框架与构建工具，核心玩法不依赖云端账号或数据库。</p>
+          <div class="run-card"><code>线上演示：incomparable-yeot-02251a.netlify.app<br>本机运行：双击「启动游戏.cmd」<br>两种入口独立使用，无需同时启动</code></div>
+          <div class="status-card"><span>Node.js 20+</span><span>桌面 / 手机适配</span><span>浏览器本地存档</span><span>测试覆盖核心闭环</span></div>
+        </div>
+        <div class="stack">
+          <div class="stack-row"><strong>界面层</strong><span>原生 HTML、CSS、JavaScript，响应式布局与无框架交互。</span></div>
+          <div class="stack-row"><strong>游戏引擎</strong><span>共享 RuleProgram、规则校验、确定性执行与地图回放。</span></div>
+          <div class="stack-row"><strong>服务层</strong><span>本机使用 Node.js；线上使用 Netlify Function 转发兼容 Chat Completions 的请求。</span></div>
+          <div class="stack-row"><strong>C 运行环境</strong><span>Wasmer Clang 按需加载，编译为 WebAssembly 后在独立 Worker 中运行。</span></div>
+          <div class="stack-row"><strong>数据与隐私</strong><span>进度保存在浏览器；密钥只驻留本机进程或线上页面内存，不写入游戏存档。</span></div>
+          <div class="stack-row"><strong>服务兼容</strong><span>可连接 DeepSeek、OpenAI、智谱、Kimi、通义千问等兼容接口。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide final" data-title="下一步">
+      <div class="slide-inner">
+        <p class="eyebrow">09 · 下一步</p>
+        <h2>从可玩的原型，走向可持续的<span class="accent">学习世界</span>。</h2>
+        <p class="lead">当前版本已经跑通“表达—执行—反馈—成长”的核心闭环；下一阶段围绕内容、验证与交付继续深化。</p>
+        <div class="next">
+          <div><strong>扩展课程</strong><p>加入变量、事件、状态、调试与综合挑战，形成更完整的学习路线。</p></div>
+          <div><strong>验证效果</strong><p>通过真实试玩观察理解度、完成率与修改过程，用行为记录迭代提示设计。</p></div>
+          <div><strong>完善发布</strong><p>补充账号同步、教师或家长视图，以及更轻量的在线体验与内容管理。</p></div>
+        </div>
+        <p class="thanks">BEYOND THE RULES · THANK YOU</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    const dots = document.getElementById('dots');
+    const progress = document.getElementById('progress');
+    let current = 0;
+
+    slides.forEach((slide, index) => {
+      const dot = document.createElement('button');
+      dot.className = 'dot';
+      dot.type = 'button';
+      dot.title = slide.dataset.title;
+      dot.setAttribute('aria-label', `第 ${index + 1} 页：${slide.dataset.title}`);
+      dot.addEventListener('click', () => go(index));
+      dots.append(dot);
+    });
+
+    function go(index) {
+      current = Math.max(0, Math.min(slides.length - 1, index));
+      slides[current].scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+    function update(index) {
+      current = index;
+      progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+      [...dots.children].forEach((dot, i) => dot.classList.toggle('active', i === index));
+      document.title = `${slides[index].dataset.title} · 规则之外路演`;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) update(slides.indexOf(entry.target));
+      });
+    }, { threshold: .58 });
+    slides.forEach(slide => observer.observe(slide));
+    document.getElementById('prev').addEventListener('click', () => go(current - 1));
+    document.getElementById('next').addEventListener('click', () => go(current + 1));
+    addEventListener('keydown', event => {
+      if (['ArrowDown', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); go(current + 1); }
+      if (['ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); go(current - 1); }
+      if (event.key === 'Home') { event.preventDefault(); go(0); }
+      if (event.key === 'End') { event.preventDefault(); go(slides.length - 1); }
+    });
+
+    const board = document.getElementById('mock-board');
+    const walls = new Set([14,15,16,25,36,47,48,49]);
+    for (let i = 0; i < 77; i++) {
+      const cell = document.createElement('span');
+      cell.className = 'cell';
+      if (walls.has(i)) cell.classList.add('wall');
+      if (i === 56) cell.classList.add('mini-bot');
+      if (i === 25) cell.classList.remove('wall');
+      if (i === 25) cell.classList.add('mini-crystal');
+      if (i === 64) cell.classList.add('mini-furnace');
+      board.append(cell);
+    }
+    update(0);
+  </script>
+</body>
+</html>

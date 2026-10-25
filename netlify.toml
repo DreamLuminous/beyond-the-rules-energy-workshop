@@ -7,6 +7,13 @@
   node_bundler = "esbuild"
   included_files = ["engine.js", "server.js"]
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+    X-Content-Type-Options = "nosniff"
+
 [[redirects]]
   from = "/api/config"
   to = "/.netlify/functions/config"
