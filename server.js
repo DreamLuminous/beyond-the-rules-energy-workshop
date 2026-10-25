@@ -7,7 +7,7 @@ const staticFiles = new Map([
   ['/engine.js', 'engine.js'], ['/growth.js', 'growth.js'], ['/app.js', 'app.js'], ['/c-worker.js', 'c-worker.js'], ['/c-run-worker.js', 'c-run-worker.js'],
 ]);
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
-function response(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
+function response(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Rules-Service': 'rules-local-v1' }); res.end(JSON.stringify(value)); }
 function endpoint(value) {
   let url;
   try { url = new URL(String(value || 'https://api.openai.com/v1/chat/completions').trim()); }
@@ -112,7 +112,7 @@ function createServer(env = process.env, fetcher = fetch) {
     const file = staticFiles.get(pathname); if (!file) return response(res, 404, { error: '页面不存在。' });
     fs.readFile(path.join(__dirname, file), (error, data) => {
       if (error) return response(res, 500, { error: '文件读取失败。' });
-      res.writeHead(200, { 'Content-Type': mime[path.extname(file)], 'Cache-Control': 'no-store',
+      res.writeHead(200, { 'Content-Type': mime[path.extname(file)], 'Cache-Control': 'no-store', 'X-Rules-Service': 'rules-local-v1',
         'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' });
       res.end(req.method === 'HEAD' ? undefined : data);
     });

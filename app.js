@@ -30,6 +30,8 @@ let level = 0, stage = Growth.STAGES.includes(save.stage) ? save.stage : 'natura
 let hintStage = 0, exportChoice = 0, proposedProgram = null, chatHistory = [],
   currentRun = null, activeView = 'home', logIndex = 0, aiUsedRun = false;
 let aiConfig = null;
+let hostedAISecret = null;
+const hostedRuntime = location.protocol === 'https:' && !['127.0.0.1', 'localhost'].includes(location.hostname);
 const drafts = {};
 const AI_PRESETS = [
   { name: 'OpenAI · GPT', url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini' },
@@ -244,13 +246,43 @@ const Sound = (() => {
   return { play(name) { if (!save.sound || !cues[name]) return; cues[name].forEach(([frequency, delay, length, gain, type]) => tone(frequency, delay, length, gain, type)); } };
 })();
 async function api(path, method = 'GET', value) {
-  if (location.protocol === 'file:') throw Error('AI 连接需要本机服务。请启动游戏服务后打开 http://127.0.0.1:4173/。');
+  if (location.protocol === 'file:') throw Error('AI 连接需要本机服务。请双击“启动游戏.cmd”，并使用它自动打开的页面。');
+  if (hostedRuntime && path === '/api/config' && method === 'GET' && hostedAISecret)
+    return { configured: true, url: hostedAISecret.url, model: hostedAISecret.model, source: 'page-memory' };
+  if (hostedRuntime && path === '/api/config' && method === 'DELETE') hostedAISecret = null;
+  let requestValue = value;
+  if (hostedRuntime && path === '/api/config' && method === 'PUT') {
+    requestValue = { ...value };
+    if (!requestValue.key?.trim() && hostedAISecret) {
+      try {
+        if (new URL(requestValue.url).origin === new URL(hostedAISecret.url).origin) requestValue.key = hostedAISecret.key;
+      } catch {}
+    }
+  }
+  else if (hostedRuntime && method === 'POST' && hostedAISecret) requestValue = { ...(value || {}), __config: hostedAISecret };
+  const request = async retry => {
+    const join = path.includes('?') ? '&' : '?';
+    const target = retry ? `${path}${join}_=${Date.now()}` : path;
+    return fetch(target, {
+      method, cache: 'no-store',
+      headers: requestValue === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: requestValue === undefined ? undefined : JSON.stringify(requestValue)
+    });
+  };
   let response;
-  try { response = await fetch(path, { method, headers: value === undefined ? {} : { 'Content-Type': 'application/json' }, body: value === undefined ? undefined : JSON.stringify(value) }); }
-  catch { throw Error('游戏服务未连接。请启动本机服务后重试；本地规则仍可运行。'); }
-  let result;
-  try { result = await response.json(); } catch { throw Error('当前地址不是游戏服务，请通过 http://127.0.0.1:4173/ 打开。'); }
+  try { response = await request(false); }
+  catch { throw Error('游戏服务未连接。请重新双击“启动游戏.cmd”；本地规则仍可运行。'); }
+  let raw = await response.text(), result;
+  try { result = JSON.parse(raw.replace(/^\uFEFF/, '')); }
+  catch {
+    try { response = await request(true); raw = await response.text(); result = JSON.parse(raw.replace(/^\uFEFF/, '')); }
+    catch {
+      throw Error('当前端口返回的不是游戏接口。请关闭这个页面，重新双击“启动游戏.cmd”后再设置 API。');
+    }
+  }
   if (!response.ok) throw Error(result.error || `服务返回 ${response.status}`);
+  if (hostedRuntime && path === '/api/config' && method === 'PUT')
+    hostedAISecret = { url: result.url, model: result.model, key: requestValue.key };
   return result;
 }
 async function configStatus() {

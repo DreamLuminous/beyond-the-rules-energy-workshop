@@ -1,0 +1,23 @@
+[build]
+  command = "node prepare-netlify.cjs"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["engine.js", "server.js"]
+
+[[redirects]]
+  from = "/api/config"
+  to = "/.netlify/functions/coach?action=config"
+  status = 200
+
+[[redirects]]
+  from = "/api/test"
+  to = "/.netlify/functions/coach?action=test"
+  status = 200
+
+[[redirects]]
+  from = "/api/propose"
+  to = "/.netlify/functions/coach?action=propose"
+  status = 200

@@ -1,0 +1,13 @@
+{
+  "name": "beyond-the-rules",
+  "version": "1.0.0",
+  "private": true,
+  "description": "规则之外互动编程学习游戏",
+  "scripts": {
+    "build": "node prepare-netlify.cjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

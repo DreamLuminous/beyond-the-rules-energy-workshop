@@ -4,7 +4,7 @@
 
 ## 启动
 
-Windows 可双击“启动游戏.cmd”，会启动本机服务并打开浏览器。游玩时保留服务窗口；如提示端口占用，请先关闭旧版本服务。不要直接双击 index.html 来使用 API。
+Windows 可双击“启动游戏.cmd”，会启动本机服务并打开浏览器。游玩时保留服务窗口；如果默认的 4173 端口已被其他程序占用，启动器会自动选择 4174—4183 中的可用端口并打开正确页面。不要直接双击 index.html 来使用 API，也不要自行用普通静态服务器打开页面。
 
 安装 Node.js 20 或更新版本，在本目录运行：
 
@@ -13,6 +13,19 @@ node server.js
 ```
 
 打开 <http://127.0.0.1:4173/>。主界面左侧依次是「继续游戏、关卡选择、成长档案、可选连接、更多设置」，导航下方有五段式通关进度条；右侧显示对应内容，默认封面含主行动按钮（开始第一关 / 继续当前关）与五关路线卡，点击任意一关直接进入。更多设置里可以开关音效，并选择游玩方式（娱乐／学习）和默认表达方式（自然语言／伪代码／C 代码）；进入关卡后这两项也能在右侧随时切换，改动会记在本机存档里。
+
+## 部署到 Netlify
+
+项目包含 `netlify.toml` 和 `netlify/functions/coach.cjs`。Netlify 构建时会运行 `node prepare-netlify.cjs`，只把游戏所需文件复制到 `dist`，并部署 `/api/config`、`/api/test`、`/api/propose` 三个函数路由。请使用 Git 连接或 Netlify CLI 部署整个项目目录；只拖放静态 HTML 文件不会部署函数。
+
+Windows 可以直接双击“部署到Netlify.cmd”。首次运行时按提示登录 Netlify，并选择已有站点 `incomparable-yeot-02251a`；之后脚本会构建并发布生产版本。也可以在项目目录手动执行：
+
+```powershell
+npx netlify-cli link
+npx netlify-cli deploy --prod --build
+```
+
+线上页面填写的模型地址、名称和密钥只保存在当前页面的 JavaScript 内存中，每次测试或对话时通过 HTTPS 发送给同站点的 Netlify Function，再由函数请求模型服务。密钥不会写入 localStorage、游戏存档、源代码或接口响应；刷新或关闭页面后需要重新填写。
 
 ## 三种难度
 

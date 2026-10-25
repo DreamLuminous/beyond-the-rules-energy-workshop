@@ -1,6 +1,7 @@
 # 本地原型，无构建产物与依赖
 node_modules/
 package-lock.json
+dist/
 
 # QA 截图与一次性脚本
 .qa/
