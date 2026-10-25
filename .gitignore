@@ -1,0 +1,16 @@
+# 本地原型，无构建产物与依赖
+node_modules/
+package-lock.json
+
+# QA 截图与一次性脚本
+.qa/
+
+# 本机文档草稿与原始需求
+docs-需求文档一.docx
+docs/
+*.zip
+*.local.md
+
+# 系统文件
+Thumbs.db
+.DS_Store
