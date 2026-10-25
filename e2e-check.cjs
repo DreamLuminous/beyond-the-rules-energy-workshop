@@ -208,18 +208,27 @@ const pickStage = (page, stage) => page.locator('#game-settings').click()
   /* ---------- AI fallback when the model is unavailable ---------- */
   const offline = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page2 = await offline.newPage();
-  await page2.route('**/api/propose', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '请先在主界面设置模型 API。' }) }));
+  let offlineRequests = 0;
+  await page2.route('**/api/propose', route => { offlineRequests++; return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '请先在主界面设置模型 API。' }) }); });
   await page2.goto(URL);
   await page2.locator('[data-home="continue"]').click();
   await page2.locator('#open-chat').click();
   const chatBox = await page2.locator('#chat-panel').boundingBox();
   check('AI 对话使用小窗', !!chatBox && chatBox.width <= 460, chatBox);
-  await page2.locator('#chat-input').fill('把红色晶体送到红色发电炉');
+  await page2.locator('#chat-input').fill('把它带到右边的机器');
   await page2.locator('#send-chat').click();
   await page2.waitForFunction(() => /本地规则/.test(document.querySelector('#chat-messages').textContent), undefined, { timeout: 10000 });
   const fallback = await page2.locator('#chat-messages').textContent();
   check('模型不可用时提示原因并保留本地玩法', /本地规则/.test(fallback), fallback);
-  await page2.locator('#close-chat').click();
+  check('未配置 API 时对话识别不发送模型请求', offlineRequests === 0);
+  await page2.locator('#chat-input').fill('再绕开墙壁');
+  await page2.locator('#send-chat').click();
+  await page2.waitForFunction(() => document.querySelector('#proposal-text').textContent.includes('绕开障碍'));
+  check('本地对话支持补充上一条策略', await page2.locator('#proposal-label').textContent() === '本地识别的规则');
+  await page2.locator('#accept-proposal').click();
+  await page2.waitForFunction(() => !document.querySelector('#complete').hidden, undefined, { timeout: 15000 });
+  check('不连接 API 也可从对话预览确认并通关', true);
+  await page2.locator('#retry-complete').click();
   await page2.locator('#input').fill('找到红色晶体，送到红色发电炉，绕开障碍。');
   await page2.locator('#run').click();
   await page2.waitForFunction(() => !document.querySelector('#complete').hidden, undefined, { timeout: 15000 });
@@ -229,6 +238,7 @@ const pickStage = (page, stage) => page.locator('#game-settings').click()
   /* ---------- AI proposal: preview, no map change, then confirm ---------- */
   const ai = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page3 = await ai.newPage();
+  await page3.route('**/api/config', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, model: 'mock-model' }) }));
   await page3.route('**/api/propose', route => route.fulfill({ status: 200, contentType: 'application/json',
     body: JSON.stringify({ reply: '先绕开障碍，再投递。', program: { version: 2, type: 'sequence', steps: [{ type: 'deliver_next', color: 'red', route: 'safe' }] } }) }));
   await page3.goto(URL);
@@ -244,6 +254,13 @@ const pickStage = (page, stage) => page.locator('#game-settings').click()
   await page3.waitForFunction(() => !document.querySelector('#complete').hidden, undefined, { timeout: 15000 });
   check('确认后 AI 规则由本地引擎执行并通关', true);
   await page3.screenshot({ path: path.join(SHOTS, 'ai-confirm.png') });
+  await page3.locator('#retry-complete').click();
+  await page3.route('**/api/propose', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '模型服务暂时不可用' }) }));
+  await page3.locator('#open-chat').click();
+  await page3.locator('#chat-input').fill('把红色水晶送到发电炉，绕开障碍');
+  await page3.locator('#send-chat').click();
+  await page3.waitForFunction(() => document.querySelector('#proposal-label').textContent === '本地识别的规则');
+  check('已配置模型故障时自动退回本地预览', (await page3.locator('#chat-messages').textContent()).includes('暂时不可用'));
   await ai.close();
 
   /* ---------- v2 save migration keeps progress, 100 XP, badge and article ---------- */
@@ -274,7 +291,7 @@ const pickStage = (page, stage) => page.locator('#game-settings').click()
   const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   await page5.route('**/api/config', async route => {
     const method = route.request().method();
-    if (method === 'PUT') { const input = JSON.parse(route.request().postData()); stored5 = { model: input.model, key: input.key }; return json(route, { configured: true, url: input.url, model: input.model, source: 'memory' }); }
+    if (method === 'PUT') { const input = JSON.parse(route.request().postData()); stored5 = { model: input.model, key: input.key || stored5?.key }; return json(route, { configured: true, url: input.url, model: input.model, source: 'memory' }); }
     if (method === 'DELETE') { stored5 = null; return json(route, { configured: false, url: '', model: '', source: 'none' }); }
     return json(route, { configured: !!stored5, url: stored5 ? 'https://example.com/v1/chat/completions' : '', model: stored5?.model || '', source: stored5 ? 'memory' : 'none' });
   });
@@ -290,8 +307,8 @@ const pickStage = (page, stage) => page.locator('#game-settings').click()
   await page5.locator('#api-url').fill('https://example.com/v1/chat/completions');
   await page5.locator('#api-model').fill('demo-model');
   await page5.locator('#api-key').fill('sk-secret-value');
-  await page5.locator('#save-config').click();
-  await page5.waitForFunction(() => /已保存/.test(document.querySelector('#config-feedback').textContent));
+  await page5.locator('#test-config').click();
+  await page5.waitForFunction(() => /连接成功/.test(document.querySelector('#config-feedback').textContent));
   check('API 设置保存后清空密钥输入', await page5.locator('#api-key').inputValue() === '');
   check('API 设置只留在本机进程', stored5?.key === 'sk-secret-value');
   await page5.locator('#test-config').click();

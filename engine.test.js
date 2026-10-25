@@ -74,3 +74,15 @@ for (const level of [3, 4]) {
 assert.deepEqual(Game.chapters.map(c => c.name), ['新手引导', 'C 语言之路']);
 assert.deepEqual(Game.chapters.flatMap(c => c.levels), [0, 1, 2, 3, 4]);
 console.log('五关 × 三难度引擎、章节布局、题材一致性与错误路径通过');
+for (const [level, phrase] of [
+  [0, '让机器人把红色的水晶运到红色炉子，避开墙壁'],
+  [0, '把它放到右边的机器里，自己找路'],
+  [1, '把所有东西搬到右侧的炉子，沿安全路线走'],
+  [2, '重复搬运所有晶体，放到同色发电炉，绕过障碍'],
+  [3, '按编号从小到大逐个把卷宗归档到柜子，绕开书架'],
+  [4, '创建一个函数，把药剂送到蒸馏器，绕开障碍，使用三次'],
+]) assert.equal(Game.execute(level, Game.natural(phrase, level)).success, true, phrase);
+const misdirected = Game.execute(0, Game.natural('红色水晶送到蓝色炉子，绕开障碍', 0));
+assert.equal(misdirected.success, false, '不能把明确写错的目标颜色改成正确答案');
+assert.match(misdirected.reason, /不能放进/);
+assert.throws(() => Game.natural('你好', 0), /缺少搬运对象/);

@@ -61,6 +61,7 @@
       if (++nodes > 40 || depth > 5) throw Error('规则过长或嵌套过深。');
       if (node?.type === 'deliver_next' || node?.type === 'deliver_id') {
         if (!['red', 'blue'].includes(node.color)) throw Error('规则包含未知发电炉。');
+        if (node.targetColor !== undefined && !['red', 'blue'].includes(node.targetColor)) throw Error('目标设备颜色无效。');
         if (!['safe', 'direct'].includes(node.route)) throw Error('路线策略无效。');
         if (node.type === 'deliver_id' && (!Number.isInteger(node.id) || node.id < 0 || node.id > 20)) throw Error('晶体编号无效。');
       } else if (node?.type === 'repeat') {
@@ -80,32 +81,53 @@
     if (!nodes) throw Error('规则还没有动作。');
     return program;
   }
-  const single = (color, route) => ({ type: 'deliver_next', color, route });
+  const single = (color, route, targetColor = color) => ({ type: 'deliver_next', color, route, ...(targetColor !== color ? { targetColor } : {}) });
   function natural(text, level) {
     const t = themeOf(level);
-    if (!text?.trim()) throw Error(`先描述你希望${t.actor}完成什么。`);
-    if (!/晶体|能源|包裹|果实|卷宗|药剂|货物|物件/.test(text) || !/送|放|投|搬|归|投递|归档|收/.test(text) || !/炉|装置|窗|筐|柜|设备|蒸馏器/.test(text)) throw Error(`请说清${t.cargo}要送到什么设备。`);
-    if (!/红/.test(text)) throw Error(`请说明要处理红色${t.cargo}。`);
-    const route = /绕|避开|安全路线/.test(text) ? 'safe' : 'direct';
-    if (level === 0) return validate({ version: 2, type: 'sequence', steps: [single('red', route)] });
+    if (!levels[level]) throw Error('关卡不存在。');
+    if (typeof text !== 'string' || !text.trim()) throw Error(`先描述你希望${t.actor}完成什么。`);
+    text = text.normalize('NFKC').toLowerCase().replace(/红色的|红的|red/g, '红色').replace(/蓝色的|蓝的|blue/g, '蓝色')
+      .replace(/水晶|晶石|能量石|矿石|石头|能量核心/g, '晶体').replace(/物品|东西|它们|这些|它/g, t.cargo)
+      .replace(/机器人|小人/g, t.actor).replace(/目的地|终点|目标设备|右边|右侧/g, t.facility)
+      .replace(/同色|颜色相同|相同颜色|颜色匹配|对应颜色/g, '按颜色分别红蓝')
+      .replace(/反复|一遍遍|一批批|批量|挨个|一个个|一颗颗|一卷卷|一瓶瓶/g, '重复')
+      .replace(/发电机/g, '发电炉').replace(/投放|递交|交给|运到|运往|运进|运输|带到|带去|拿到|拿去/g, '送到');
+    const hasCargo = /晶体|能源|包裹|果实|卷宗|药剂|货物|物件|核心/.test(text);
+    const hasAction = /送|放|投|搬|归|收|deliver|put/.test(text);
+    const hasTarget = /炉|装置|窗|筐|柜|设备|蒸馏|机器|归档|furnace/.test(text);
+    if (!hasCargo || !hasAction || !hasTarget) throw Error(`本地规则还缺少${!hasCargo ? '搬运对象' : !hasAction ? '投递动作' : '目的地'}。可以写「把${t.cargo}送进${t.facility}」，再补充循环、分类或绕行策略。`);
+    const onlyRed = levels[level].items.every(item => item[2] === 'red');
+    if (!/红|蓝/.test(text) && onlyRed) text += ' 红色';
+    if (!/红/.test(text)) throw Error(`本关需要处理红色${t.cargo}。`);
+    const route = /绕|避|躲|安全|寻路|找路|规划路线|上方通道|下方通道/.test(text) && !/不(?:要)?绕|直接|直走/.test(text) ? 'safe' : 'direct';
+    const targetMatch = text.match(/(?:送|放|投|搬|归档)[^。；;\n]{0,24}?(红|蓝)色?[^。；;\n]{0,8}(?:炉|柜|装置|机器|蒸馏器)/);
+    const correction = [...text.matchAll(/(?:改成|改为|换成)(红|蓝)色?[^。；;\n]{0,8}(?:炉|柜|装置|机器|蒸馏器)/g)].at(-1);
+    const target = (correction || targetMatch)?.[1] === '蓝' ? 'blue' : 'red';
+    if (level === 0) return validate({ version: 2, type: 'sequence', steps: [single('red', route, target)] });
     if (level === 4) {
-      if (!/定义|封装/.test(text) || !/技能|函数/.test(text)) throw Error(`先把投递红色${t.cargo}的步骤定义成一个技能。`);
+      if (!/定义|封装|创建|写|做一个/.test(text) || !/技能|函数|方法/.test(text)) throw Error(`先把投递红色${t.cargo}的步骤定义成一个技能。`);
       const times = text.match(/([一两二三四五]|\d+)\s*次/);
-      if (!times || !/调用|使用/.test(text)) throw Error('技能定义好后，请说明要调用几次。');
+      if (!times || !/调用|使用|执行|运行/.test(text)) throw Error('技能定义好后，请说明要调用几次。');
       const count = { 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5 }[times[1]] ?? Number(times[1]);
       if (!(count >= 1 && count <= 5)) throw Error('调用次数需要在 1 到 5 之间。');
       const name = '投递红色';
       return validate({ version: 2, type: 'sequence', steps: [{ type: 'def', name, body: [single('red', route)] }, ...Array.from({ length: count }, () => ({ type: 'call', name }))] });
     }
-    if (!/重复|循环|持续|不断|所有|全部|每|直到|遍历|依次|逐个/.test(text)) throw Error(`有多件${t.cargo}。请说明怎样重复执行，以及何时结束。`);
-    if (level === 1) return validate({ version: 2, type: 'sequence', steps: [{ type: 'repeat', until: 'no_remaining', body: [single('red', route)] }] });
+    if (!/重复|循环|持续|不断|所有|全部|每|直到|遍历|依次|逐个|全都|全送|都送|都放|三颗|3颗|三件|三卷/.test(text)) throw Error(`有多件${t.cargo}。请说明怎样重复执行，以及何时结束。`);
+    if (level === 1) return validate({ version: 2, type: 'sequence', steps: [{ type: 'repeat', until: 'no_remaining', body: [single('red', route, target)] }] });
     if (level === 3) {
       if (!/数组|编号|下标/.test(text)) throw Error(`请说明要按${t.cargo}数组的编号或下标处理。`);
       if (!/从小到大|递增|依次|顺序|0\s*(?:到|至|～|~|-)\s*4/.test(text)) throw Error('请说明按编号从小到大依次遍历。');
       return validate({ version: 2, type: 'sequence', steps: levels[level].items.map((item, id) => ({ type: 'deliver_id', id, color: item[2], route })) });
     }
-    if (!/蓝/.test(text) || !/如果|否则|分别|对应|根据颜色|按颜色/.test(text)) throw Error('红蓝晶体需要不同去向。请补充颜色判断。');
-    return validate({ version: 2, type: 'sequence', steps: [{ type: 'repeat', until: 'no_remaining', body: [{ type: 'if_color', color: 'red', then: [single('red', route)], else: [single('blue', route)] }] }] });
+    const explicitPairs = [...text.matchAll(/(?:红|蓝)[^。；;\n]{0,15}(?:送|放|投)[^。；;\n]{0,8}(?:红|蓝)[^。；;\n]{0,5}炉/g)].length >= 2;
+    if (!/蓝/.test(text) || (!/如果|否则|分别|对应|根据颜色|按颜色/.test(text) && !explicitPairs)) throw Error('红蓝晶体需要不同去向。请补充颜色判断。');
+    const destinationFor = source => {
+      const pattern = new RegExp(source + '色?(?:晶体|能源|货物)[^。；;\\n]{0,12}?(?:送|放|投)[^。；;\\n]{0,8}?(红|蓝)色?[^。；;\\n]{0,5}炉', 'g');
+      const match = [...text.matchAll(pattern)].at(-1);
+      return match ? match[1] === '红' ? 'red' : 'blue' : source === '红' ? 'red' : 'blue';
+    };
+    return validate({ version: 2, type: 'sequence', steps: [{ type: 'repeat', until: 'no_remaining', body: [{ type: 'if_color', color: 'red', then: [single('red', route, destinationFor('红'))], else: [single('blue', route, destinationFor('蓝'))] }] }] });
   }
   function pseudo(text, level) {
     const t = themeOf(level);
@@ -160,8 +182,8 @@
     const routines = {}; let callDepth = 0;
     const run = steps => { for (const node of steps) {
       if (++budget > 120) throw Error('规则循环超过安全限制。');
-      if (node.type === 'deliver_next') deliver(state.items.find(i => i.color === node.color), node.color, node.route);
-      if (node.type === 'deliver_id') deliver(state.items.find(i => i.id === node.id), node.color, node.route);
+      if (node.type === 'deliver_next') deliver(state.items.find(i => i.color === node.color), node.targetColor || node.color, node.route);
+      if (node.type === 'deliver_id') deliver(state.items.find(i => i.id === node.id), node.targetColor || node.color, node.route);
       if (node.type === 'repeat') { while (state.items.length) run(node.body); }
       if (node.type === 'def') routines[node.name] = node.body;
       if (node.type === 'call') {

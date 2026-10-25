@@ -29,6 +29,7 @@ let level = 0, stage = Growth.STAGES.includes(save.stage) ? save.stage : 'natura
   runWorker = null, runTimer = null;
 let hintStage = 0, exportChoice = 0, proposedProgram = null, chatHistory = [],
   currentRun = null, activeView = 'home', logIndex = 0, aiUsedRun = false;
+let aiConfig = null;
 const drafts = {};
 const AI_PRESETS = [
   { name: 'OpenAI · GPT', url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini' },
@@ -243,14 +244,18 @@ const Sound = (() => {
   return { play(name) { if (!save.sound || !cues[name]) return; cues[name].forEach(([frequency, delay, length, gain, type]) => tone(frequency, delay, length, gain, type)); } };
 })();
 async function api(path, method = 'GET', value) {
-  const response = await fetch(path, { method, headers: value === undefined ? {} : { 'Content-Type': 'application/json' }, body: value === undefined ? undefined : JSON.stringify(value) });
-  const result = await response.json();
+  if (location.protocol === 'file:') throw Error('AI 连接需要本机服务。请启动游戏服务后打开 http://127.0.0.1:4173/。');
+  let response;
+  try { response = await fetch(path, { method, headers: value === undefined ? {} : { 'Content-Type': 'application/json' }, body: value === undefined ? undefined : JSON.stringify(value) }); }
+  catch { throw Error('游戏服务未连接。请启动本机服务后重试；本地规则仍可运行。'); }
+  let result;
+  try { result = await response.json(); } catch { throw Error('当前地址不是游戏服务，请通过 http://127.0.0.1:4173/ 打开。'); }
   if (!response.ok) throw Error(result.error || `服务返回 ${response.status}`);
   return result;
 }
 async function configStatus() {
-  try { const info = await api('/api/config'); $('api-status').textContent = info.configured ? `已连接设置：${info.model}` : '本地玩法无需模型 API。'; return info; }
-  catch { $('api-status').textContent = '本机服务未连接，AI 对话暂不可用。'; return null; }
+  try { const info = await api('/api/config'); aiConfig = info; $('api-status').textContent = info.configured ? `已配置 ${info.model} · 可测试连接` : '本地规则可直接游玩，AI 连接可选。'; return info; }
+  catch { aiConfig = null; $('api-status').textContent = '当前使用本地规则；连接 AI 需要启动游戏服务。'; return null; }
 }
 function updateBoard(state = world) {
   world = state; const board = $('board'); board.replaceChildren();
@@ -284,7 +289,7 @@ function applyStageChrome() {
   $('editor-title').textContent = stage === 'natural' ? `告诉${theme.actor}怎么做` : stage === 'pseudo' ? '整理行动逻辑' : '亲自编写程序';
   const objects = Game.levels[level].items.map((item, id) => `#${id} ${names[item[2]]}(${item[0]},${item[1]})`).join('、');
   $('editor-help').textContent = stage === 'natural'
-    ? save.mode === 'learning' ? '表达要点：明确对象、目标和路线；批量任务加入循环，分拣任务加入颜色条件。' : `用自己的话安排${theme.actor}行动。`
+    ? save.mode === 'learning' ? '本地可运行。说清对象、目标和路线；批量任务加入重复，分拣任务加入颜色条件。' : `本地识别，无需 API。用自己的话安排${theme.actor}行动。`
     : stage === 'pseudo' ? '逐行修改方括号里的内容；系统会指出第一处不符合规则的行。'
     : `workshop.h · 地图 11 × 8，左上角 (0,0)。${theme.cargo}编号 0～${Game.levels[level].items.length - 1}。\nint crystal_count(void); int crystal_color(int id);\nvoid deliver(int id, int furnace_color); 常量 RED、BLUE。deliver 自动寻找合法路线。\n本关对象：${objects}。${Game.levels[level].ordered ? '本关必须按编号从小到大依次投递。' : ''}`;
   $('voice').hidden = stage !== 'natural'; $('open-chat').hidden = stage !== 'natural';
@@ -336,8 +341,8 @@ function log(message) {
 }
 function describeProgram(program) {
   const theme = Game.themeOf(level), measure = theme.measure || '件';
-  const describe = node => node.type === 'deliver_next' ? `找到下一${measure}${names[node.color]}${theme.cargo}，${node.route === 'safe' ? '绕开障碍后送入' : '直接送入'}${names[node.color]}${theme.facility}`
-    : node.type === 'deliver_id' ? `投递编号 ${node.id} 的${theme.cargo}到${names[node.color]}${theme.facility}`
+  const describe = node => node.type === 'deliver_next' ? `找到下一${measure}${names[node.color]}${theme.cargo}，${node.route === 'safe' ? '绕开障碍后送入' : '直接送入'}${names[node.targetColor || node.color]}${theme.facility}`
+    : node.type === 'deliver_id' ? `投递编号 ${node.id} 的${theme.cargo}到${names[node.targetColor || node.color]}${theme.facility}`
       : node.type === 'repeat' ? `重复直到没有${theme.cargo}：\n${node.body.map(describe).join('\n')}`
         : node.type === 'def' ? `定义技能「${node.name}」：\n${node.body.map(describe).join('\n')}`
           : node.type === 'call' ? `调用技能「${node.name}」`
@@ -354,8 +359,8 @@ function programLines(steps, depth, out) {
       out.push({ depth, text: `如果下一${measure}是红色：` }); programLines(node.then, depth + 1, out);
       out.push({ depth, text: '否则：' }); programLines(node.else, depth + 1, out);
     } else out.push({ depth, text: node.type === 'deliver_next'
-      ? `找到下一${measure}${names[node.color]}${theme.cargo}，${node.route === 'safe' ? '绕开障碍后送入' : '直接送入'}${names[node.color]}${theme.facility}`
-      : `投递编号 ${node.id} 的${theme.cargo}到${names[node.color]}${theme.facility}` });
+      ? `找到下一${measure}${names[node.color]}${theme.cargo}，${node.route === 'safe' ? '绕开障碍后送入' : '直接送入'}${names[node.targetColor || node.color]}${theme.facility}`
+      : `投递编号 ${node.id} 的${theme.cargo}到${names[node.targetColor || node.color]}${theme.facility}` });
   }
   return out;
 }
@@ -502,13 +507,23 @@ function bubble(text, type) { const div = document.createElement('div'); div.cla
 async function sendChat() {
   const text = $('chat-input').value.trim(); if (!text) return;
   bubble(text, 'user'); $('chat-input').value = ''; $('send-chat').disabled = true;
+  const localProposal = () => {
+    const ideas = [...chatHistory.filter(item => item.role === 'user').map(item => item.content), text].join('；');
+    let program;
+    try { program = Game.natural(text, level); } catch { program = Game.natural(ideas, level); }
+    return { reply: '本地规则已识别。请检查下面的行动预览，确认后再运行。', program, local: true };
+  };
   try {
-    const result = await api('/api/propose', 'POST', { level, text, messages: chatHistory, lastRun: latestRun() });
+    let result;
+    try { result = aiConfig?.configured ? await api('/api/propose', 'POST', { level, text, messages: chatHistory, lastRun: latestRun() }) : localProposal(); }
+    catch (error) { bubble(error.message, 'error'); result = localProposal(); }
     bubble(result.reply, 'assistant'); chatHistory.push({ role: 'user', content: text }, { role: 'assistant', content: result.reply });
     proposedProgram = result.program;
+    $('proposal-label').textContent = result.local ? '本地识别的规则' : 'AI 提议的规则';
+    $('accept-proposal').dataset.local = String(!!result.local);
     $('proposal').hidden = !proposedProgram; $('accept-proposal').hidden = !proposedProgram;
     if (proposedProgram) $('proposal-text').textContent = describeProgram(proposedProgram);
-  } catch (error) { bubble(error.message + ' 你仍可使用本地规则输入。', 'error'); }
+  } catch (error) { chatHistory.push({ role: 'user', content: text }); bubble(error.message, 'error'); proposedProgram = null; $('proposal').hidden = true; $('accept-proposal').hidden = true; }
   finally { $('send-chat').disabled = false; }
 }
 function exportLabel(choice) { return choice === 'combined' ? '成长总报告' : Growth.PACKS[choice].title; }
@@ -589,8 +604,19 @@ for (const preset of AI_PRESETS) {
   $('ai-presets').append(button);
 }
 $('close-settings').onclick = () => $('settings-dialog').close();
-$('save-config').onclick = async () => { try { await api('/api/config', 'PUT', { url: $('api-url').value, model: $('api-model').value, key: $('api-key').value }); $('api-key').value = ''; $('config-feedback').textContent = '已保存到本机进程内存。'; configStatus(); } catch (error) { $('config-feedback').textContent = error.message; } };
-$('test-config').onclick = async () => { $('config-feedback').textContent = '正在测试连接…'; try { await api('/api/test', 'POST', {}); $('config-feedback').textContent = '连接成功。'; } catch (error) { $('config-feedback').textContent = error.message; } };
+async function saveConfigForm() {
+  const info = await api('/api/config', 'PUT', { url: $('api-url').value, model: $('api-model').value, key: $('api-key').value });
+  $('api-key').value = ''; $('api-url').value = info.url; aiConfig = info; await configStatus(); return info;
+}
+async function configureFromForm(testConnection) {
+  $('save-config').disabled = true; $('test-config').disabled = true;
+  $('config-feedback').textContent = testConnection ? '正在保存并测试当前配置…' : '正在保存…';
+  try { await saveConfigForm(); if (testConnection) await api('/api/test', 'POST', {}); $('config-feedback').textContent = testConnection ? '连接成功，现在可以与 AI 对话。' : '已保存。可以测试连接或直接进入 AI 对话。'; }
+  catch (error) { $('config-feedback').textContent = error.message; }
+  finally { $('save-config').disabled = false; $('test-config').disabled = false; }
+}
+$('save-config').onclick = () => configureFromForm(false);
+$('test-config').onclick = () => configureFromForm(true);
 $('clear-config').onclick = async () => { try { const info = await api('/api/config', 'DELETE'); $('api-key').value = ''; $('config-feedback').textContent = info.configured ? '已恢复启动时的环境变量配置。' : '已清除本次会话配置。'; configStatus(); } catch (error) { $('config-feedback').textContent = error.message; } };
 for (const button of document.querySelectorAll('.rail-nav button')) button.onclick = () => {
   if (button.dataset.home === 'continue') { showHomePanel('cover'); openLevel(nextLevelIndex()); return; }
@@ -606,7 +632,7 @@ $('retry-complete').onclick = reset;
 $('hint-next').onclick = hint;
 $('open-chat').onclick = openChat; $('close-chat').onclick = () => { $('chat-panel').hidden = true; };
 $('send-chat').onclick = sendChat;
-  $('accept-proposal').onclick = () => { if (!proposedProgram) return; const accepted = proposedProgram; aiUsedRun = true; $('chat-panel').hidden = true; $('input').value = chatHistory.filter(m => m.role === 'user').map(m => m.content).join('\n'); play(accepted, $('input').value); };
+  $('accept-proposal').onclick = () => { if (!proposedProgram) return; const accepted = proposedProgram; aiUsedRun = $('accept-proposal').dataset.local !== 'true'; $('chat-panel').hidden = true; $('input').value = chatHistory.filter(m => m.role === 'user').map(m => m.content).join('\n'); play(accepted, $('input').value); };
 $('generate-export').onclick = createExport; $('save-export').onclick = saveExport; $('download-export').onclick = download; $('merge-update').onclick = mergeUpdate;
 for (const [index, pack] of Growth.PACKS.entries()) {
   const label = document.createElement('label');
