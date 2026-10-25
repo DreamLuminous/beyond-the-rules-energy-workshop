@@ -16,7 +16,7 @@ node server.js
 
 ## 部署到 Netlify
 
-项目包含 `netlify.toml` 和 `netlify/functions/coach.cjs`。Netlify 构建时会运行 `node prepare-netlify.cjs`，只把游戏所需文件复制到 `dist`，并部署 `/api/config`、`/api/test`、`/api/propose` 三个函数路由。请使用 Git 连接或 Netlify CLI 部署整个项目目录；只拖放静态 HTML 文件不会部署函数。
+项目包含 `netlify.toml` 和 `netlify/functions/`。Netlify 构建时会运行 `node prepare-netlify.cjs`，只把游戏所需文件复制到 `dist`，并把 `/api/config`、`/api/test`、`/api/propose` 分别交给独立函数入口。请使用 Git 连接或 Netlify CLI 部署整个项目目录；只拖放静态 HTML 文件不会部署函数。
 
 Windows 可以直接双击“部署到Netlify.cmd”。首次运行时按提示登录 Netlify，并选择已有站点 `incomparable-yeot-02251a`；之后脚本会构建并发布生产版本。也可以在项目目录手动执行：
 

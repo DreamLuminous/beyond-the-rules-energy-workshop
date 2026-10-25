@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createHandler } = require('./netlify/functions/coach.cjs');
+const configFunction = require('./netlify/functions/config.cjs').handler;
 
 test('Netlify function config and DeepSeek test work without persisting the key', async () => {
   let authorization = '';
@@ -22,4 +23,11 @@ test('Netlify function config and DeepSeek test work without persisting the key'
   assert.equal(checked.statusCode, 200);
   assert.equal(JSON.parse(checked.body).connected, true);
   assert.equal(authorization, 'Bearer test-secret');
+});
+
+test('dedicated Netlify config route does not depend on redirect query parameters', async () => {
+  const response = await configFunction({ httpMethod: 'GET', queryStringParameters: null });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['X-Rules-Service'], 'rules-netlify-v1');
+  assert.equal(typeof JSON.parse(response.body).configured, 'boolean');
 });

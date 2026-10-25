@@ -9,15 +9,15 @@
 
 [[redirects]]
   from = "/api/config"
-  to = "/.netlify/functions/coach?action=config"
+  to = "/.netlify/functions/config"
   status = 200
 
 [[redirects]]
   from = "/api/test"
-  to = "/.netlify/functions/coach?action=test"
+  to = "/.netlify/functions/test"
   status = 200
 
 [[redirects]]
   from = "/api/propose"
-  to = "/.netlify/functions/coach?action=propose"
+  to = "/.netlify/functions/propose"
   status = 200
